@@ -1,0 +1,35 @@
+ngx_addon_name="ngx_http_lua_shdict_module ngx_stream_lua_shdict_module"
+
+SRCS="$ngx_addon_dir/ngx_lua_shdict.c         \
+      $ngx_addon_dir/ngx_http_lua_shdict.c    \
+      $ngx_addon_dir/ngx_stream_lua_shdict.c"
+
+DEPS="$ngx_addon_dir/api/ngx_lua_shdict.h"
+
+CORE_INCS="$CORE_INCS $ngx_addon_dir/api"
+
+if [ "$ngx_module_link" = DYNAMIC ]; then
+
+    ngx_module_type=HTTP_AUX_FILTER
+    ngx_module_name="ngx_http_lua_shdict_module"
+    ngx_module_incs=
+    ngx_module_deps="$DEPS"
+    ngx_module_srcs="$SRCS"
+
+    . auto/module
+
+    ngx_module_type=STREAM
+    ngx_module_name="ngx_stream_lua_shdict_module"
+    ngx_module_incs=
+    ngx_module_deps="$DEPS"
+    ngx_module_srcs="$SRCS"
+
+    . auto/module
+
+elif [ "$ngx_module_link" = ADDON ]; then
+    STREAM_MODULES="$STREAM_MODULES ngx_stream_lua_shdict_module"
+    HTTP_AUX_FILTER_MODULES="$HTTP_AUX_FILTER_MODULES ngx_http_lua_shdict_module"
+
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $SRCS"
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $DEPS"
+fi
