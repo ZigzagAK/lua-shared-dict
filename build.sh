@@ -345,9 +345,9 @@ function download() {
   download_dep http://ftp.cs.stanford.edu/pub/exim/pcre                            pcre      $PCRE_VERSION      tar.gz
   download_dep http://zlib.net                                                     zlib      $ZLIB_VERSION      tar.gz
 
-  download_module https://github.com      openresty   stream-lua-nginx-module          master
+  download_module https://github.com      openresty   stream-lua-nginx-module          v0.0.6
   download_module https://github.com      simpl       ngx_devel_kit                    master
-  download_module https://github.com      openresty   lua-nginx-module                 master
+  download_module https://github.com      openresty   lua-nginx-module                 v0.10.14
   download_module https://github.com      openresty   lua-cjson                        master
   download_module https://github.com      openresty   echo-nginx-module                master
   download_module https://github.com      openresty   luajit2                          v2.1-agentzh
