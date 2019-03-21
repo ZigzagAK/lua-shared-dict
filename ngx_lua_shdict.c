@@ -2541,6 +2541,7 @@ ngx_lua_add_shared_dict(char *(*add)(ngx_conf_t *cf, ngx_conf_t *conf),
     ngx_conf_t            *conf;
     ngx_str_t             *val;
     ngx_shm_zone_t        *zone;
+    ngx_shm_zone_t       **zone_udata;
     volatile ngx_cycle_t  *saved;
 
     conf = ngx_pcalloc(cf->pool, sizeof(ngx_conf_t));
@@ -2607,7 +2608,8 @@ ngx_lua_add_shared_dict(char *(*add)(ngx_conf_t *cf, ngx_conf_t *conf),
     /* table of zone[i] */
     lua_createtable(L, 1 /* narr */, 0 /* nrec */);
     /* shared mt key ud */
-    lua_pushlightuserdata(L, zone);
+    zone_udata = lua_newuserdata(L, sizeof(ngx_shm_zone_t *));
+    *zone_udata = zone;
     /* {zone} */
     lua_rawseti(L, -2, SHDICT_USERDATA_INDEX);
     /* shared mt key ud mt */
