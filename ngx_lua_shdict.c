@@ -765,7 +765,7 @@ void
 ngx_lua_shdict_zset_insert_value(ngx_rbtree_node_t *temp,
     ngx_rbtree_node_t *node, ngx_rbtree_node_t *sentinel)
 {
-    ngx_rbtree_node_t               **p;
+    ngx_rbtree_node_t          **p;
     ngx_lua_shdict_zset_node_t  *sdn, *sdnt;
 
     for ( ;; ) {
@@ -2538,11 +2538,11 @@ ngx_shm_zone_t *
 ngx_lua_add_shared_dict(char *(*add)(ngx_conf_t *cf, ngx_conf_t *conf),
     lua_State *L, ngx_conf_t *cf, ngx_str_t name, ngx_str_t size)
 {
-    ngx_conf_t            *conf;
-    ngx_str_t             *val;
-    ngx_shm_zone_t        *zone;
-    ngx_shm_zone_t       **zone_udata;
-    volatile ngx_cycle_t  *saved;
+    ngx_conf_t              *conf;
+    ngx_str_t               *val;
+    ngx_shm_zone_t          *zone;
+    ngx_shm_zone_t         **zone_udata;
+    volatile ngx_cycle_t    *saved;
 
     conf = ngx_pcalloc(cf->pool, sizeof(ngx_conf_t));
     if (conf == NULL) {
@@ -2586,6 +2586,11 @@ ngx_lua_add_shared_dict(char *(*add)(ngx_conf_t *cf, ngx_conf_t *conf),
     ngx_cycle = cf->cycle;
     zone = ngx_lua_find_zone(name.data, name.len);
     ngx_cycle = saved;
+
+    zone->data = ngx_lua_shdict_new_ctx(cf, zone);
+    if (zone->data == NULL)
+        return NULL;
+    zone->init = ngx_lua_shdict_init_zone;
 
     if (L == NULL) {
         return zone;
