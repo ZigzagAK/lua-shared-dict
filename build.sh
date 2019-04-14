@@ -345,9 +345,9 @@ function download() {
   download_dep http://ftp.cs.stanford.edu/pub/exim/pcre                            pcre      $PCRE_VERSION      tar.gz
   download_dep http://zlib.net                                                     zlib      $ZLIB_VERSION      tar.gz
 
-  download_module https://github.com      openresty   stream-lua-nginx-module          v0.0.6
+  download_module https://github.com      openresty   stream-lua-nginx-module          v0.0.7rc1
   download_module https://github.com      simpl       ngx_devel_kit                    master
-  download_module https://github.com      openresty   lua-nginx-module                 v0.10.14
+  download_module https://github.com      openresty   lua-nginx-module                 v0.10.15rc1
   download_module https://github.com      openresty   lua-cjson                        master
   download_module https://github.com      openresty   echo-nginx-module                master
   download_module https://github.com      openresty   luajit2                          v2.1-agentzh
@@ -444,6 +444,55 @@ if [ $download_only -eq 0 ]; then
 fi
 
 cd "$DIR"
+
+function install_resty_module() {
+  if [ $7 -eq 1 ] || [ ! -e $3.tar.gz ]; then
+    if [ $8 -eq 1 ] || [ ! -e $3.tar.gz ]; then
+      echo "Download $1/$2/$3.git from=$6" | tee -a $BUILD_LOG
+      gitclone $1/$2/$3.git
+      echo "$1/$2/$3.git" > $3.log
+      echo >> $3.log
+      cd $3
+      gitcheckout $6
+      echo $6" : "$(git log -1 --oneline | awk '{print $1}') >> ../$3.log
+      echo >> ../$3.log
+      git log -1 | grep -E "(^[Cc]ommit)|(^[Aa]uthor)|(^[Dd]ate)" >> ../$3.log
+      cd ..
+      tar zcf $3.tar.gz $3
+      rm -rf $3
+    else
+      echo "Get $3-$6" | tee -a $BUILD_LOG
+    fi
+  else
+    echo "Get $3-$6" | tee -a $BUILD_LOG
+  fi
+  if [ $9 -eq 0 ]; then
+    echo "Install $3/$4" | tee -a $BUILD_LOG
+    if [ ! -e "$INSTALL_DIR/nginx-$VERSION/$5" ]; then
+      mkdir -p "$INSTALL_DIR/nginx-$VERSION/$5"
+    fi
+    if [ -e $3.tar.gz ]; then
+      tar zxf $3.tar.gz
+      cp -r $3/$4 "$INSTALL_DIR/nginx-$VERSION/$5/"
+      rm -rf $3
+    fi
+  fi
+}
+
+function install_lua_modules() {
+  if [ $download_all -eq 1 ]; then
+    rm -rf downloads/lua_modules/* 2>>$ERR_LOG
+  fi
+
+  cd downloads/lua_modules
+
+  install_resty_module https://github.com   openresty    lua-resty-core                      lib                  .   v0.1.17rc1 $download $download_all $download_only
+  install_resty_module https://github.com   openresty    lua-resty-lrucache                  lib                  .   v0.09      $download $download_all $download_only
+
+  cd ../..
+}
+
+install_lua_modules
 
 kernel_name=$(uname -s)
 kernel_version=$(uname -r)

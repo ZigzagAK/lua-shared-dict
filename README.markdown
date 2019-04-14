@@ -18,8 +18,8 @@ Also this module export shared dictionary C API, which may be uset in C modules.
 
 This module tested with:
 
-- lua-nginx-module: v0.10.14
-- stream-lua-nginx-module: v0.0.6
+- lua-nginx-module: v0.10.15rc1
+- stream-lua-nginx-module: v0.0.7rc1
 
 Important notice
 ================
