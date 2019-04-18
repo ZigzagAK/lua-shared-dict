@@ -73,6 +73,9 @@ void ngx_lua_shdict_lock(ngx_shm_zone_t *shm_zone);
 void ngx_lua_shdict_unlock(ngx_shm_zone_t *shm_zone);
 
 int
+ngx_lua_shdict_expire_items_locked(ngx_shm_zone_t *shm_zone, ngx_uint_t n);
+
+int
 ngx_lua_shdict_expire_items(ngx_shm_zone_t *shm_zone, ngx_uint_t n);
 
 ngx_shm_zone_t *

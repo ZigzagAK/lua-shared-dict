@@ -269,10 +269,27 @@ ngx_lua_shdict_unlock(ngx_shm_zone_t *shm_zone)
 
 
 int
-ngx_lua_shdict_expire_items(ngx_shm_zone_t *shm_zone, ngx_uint_t n)
+ngx_lua_shdict_expire_items_locked(ngx_shm_zone_t *shm_zone, ngx_uint_t n)
 {
     ngx_lua_shdict_ctx_t *ctx = shm_zone->data;
     return ngx_lua_shdict_expire(ctx, n);
+}
+
+
+int
+ngx_lua_shdict_expire_items(ngx_shm_zone_t *shm_zone, ngx_uint_t n)
+{
+    int  retval;
+
+    ngx_lua_shdict_ctx_t *ctx = shm_zone->data;
+
+    ngx_shmtx_lock(&ctx->shpool->mutex);
+
+    retval = ngx_lua_shdict_expire(ctx, n);
+
+    ngx_shmtx_unlock(&ctx->shpool->mutex);
+
+    return retval;
 }
 
 
