@@ -16,6 +16,8 @@ export LUA_PATH="$DIR/install/tmp/$folder/lib/?.lua;;"
 
 ret=0
 
+export SHDICT_RWLOCK=1
+
 cd t
 
 for t in $(find . -name *.t)

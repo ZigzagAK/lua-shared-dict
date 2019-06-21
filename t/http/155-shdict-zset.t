@@ -1,6 +1,8 @@
 # vim:set ft= ts=4 sw=4 et fdm=marker:
 use Test::Nginx::Socket::Lua;
 
+env_to_nginx("SHDICT_RWLOCK");
+
 #worker_connections(1014);
 #master_process_enabled(1);
 #log_level('warn');

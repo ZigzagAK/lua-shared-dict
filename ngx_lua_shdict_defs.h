@@ -56,6 +56,7 @@ typedef struct {
     ngx_msec_t                   last;
     uint32_t                     count[2];
     uint32_t                     rps;
+    ngx_atomic_t                 rwlock;
 } ngx_lua_shdict_shctx_t;
 
 

@@ -2,6 +2,8 @@
 use lib 'lib';
 use Test::Nginx::Socket::Lua;
 
+env_to_nginx("SHDICT_RWLOCK");
+
 #worker_connections(1014);
 #master_process_enabled(1);
 #log_level('warn');

@@ -1,6 +1,8 @@
 # vim:set ft= ts=4 sw=4 et fdm=marker:
 use Test::Nginx::Socket::Lua::Stream;
 
+env_to_nginx("SHDICT_RWLOCK");
+
 #worker_connections(1014);
 #master_process_enabled(1);
 #log_level('warn');
@@ -137,7 +139,7 @@ hello
     content_by_lua_block {
         local dogs = ngx.shared.dogs
         dogs:set("foo", 32, 0.01)
-        ngx.sleep(0.01)
+        ngx.sleep(0.02)
         ngx.say(dogs:get("foo"))
     }
 --- stream_response
@@ -865,7 +867,7 @@ nil nil
     content_by_lua_block {
         local dogs = ngx.shared.dogs
         dogs:set("foo", 32, 0.01, 255)
-        ngx.sleep(0.01)
+        ngx.sleep(0.02)
         local res, flags = dogs:get("foo")
         ngx.say("res = ", res, ", flags = ", flags)
     }

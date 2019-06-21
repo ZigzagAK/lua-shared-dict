@@ -14,6 +14,8 @@ BEGIN {
 
 use Test::Nginx::Socket::Lua $SkipReason ? (skip_all => $SkipReason) : ();
 
+env_to_nginx("SHDICT_RWLOCK");
+
 #worker_connections(1014);
 #master_process_enabled(1);
 #log_level('warn');
