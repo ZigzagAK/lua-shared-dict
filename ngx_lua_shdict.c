@@ -1901,8 +1901,6 @@ replace:
                 value.data, value_type,
                 ngx_lua_get_expires(exptime), user_flags);
 
-            ngx_shmtx_unlock(&ctx->shpool->mutex);
-
             return NGX_LUA_SHDICT_OK;
         }
 
@@ -4692,7 +4690,6 @@ ngx_lua_shdict_zget(lua_State *L)
 
     case NGX_LUA_SHDICT_NOT_FOUND:
 
-        ngx_shmtx_unlock(&ctx->shpool->mutex);
         lua_pushnil(L);
         break;
 
