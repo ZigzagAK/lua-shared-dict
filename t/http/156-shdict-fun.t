@@ -52,7 +52,7 @@ __DATA__
             end
 
             local val, flags = dogs:get("foo")
-            if val then
+            if not val then
                  ngx.say("ok")
             else
                  ngx.say("error")
