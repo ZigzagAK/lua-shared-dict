@@ -3563,8 +3563,9 @@ ngx_lua_shdict_api_ttl_locked(ngx_shm_zone_t *shm_zone,
     tp = ngx_timeofday();
     now = (uint64_t) tp->sec * 1000 + tp->msec;
 
-   *ttl = sd->expires - now;
+    *ttl = sd->expires - now;
 
+    return NGX_LUA_SHDICT_OK;
 }
 
 
