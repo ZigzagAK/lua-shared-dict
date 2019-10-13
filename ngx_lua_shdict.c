@@ -3494,7 +3494,7 @@ ngx_lua_shdict_fun(lua_State *L)
     rc = ngx_lua_shdict_api_fun_helper(zone, userctx.key,
         ngx_lua_shdict_fun_pcall,
         ngx_lua_shdict_get_helper_err_handler,
-        0, ngx_lua_get_expires(exptime),
+        0, ngx_lua_get_expires((int64_t) (exptime * 1000)),
         &userctx, 1, NULL);
 
     ngx_lua_shdict_unlock(zone);
@@ -3541,7 +3541,7 @@ ngx_lua_shared_dict_free_space(lua_State *L)
 {
     ngx_shm_zone_t              *zone;
     size_t                       bytes;
-    ngx_lua_shdict_ctx_t   *ctx;
+    ngx_lua_shdict_ctx_t        *ctx;
     int                          n = lua_gettop(L);
 
     if (n != 1) {
@@ -3612,9 +3612,9 @@ ngx_lua_shdict_api_ttl_locked(ngx_shm_zone_t *zone,
     tp = ngx_timeofday();
     now = (uint64_t) tp->sec * 1000 + tp->msec;
 
-      *ttl = sd->expires - now;
+    *ttl = sd->expires - now;
 
-      return NGX_LUA_SHDICT_OK;
+    return NGX_LUA_SHDICT_OK;
 }
 
 
