@@ -55,6 +55,8 @@ dd(const char *fmt, ...) {
 #include "api/ngx_lua_shdict.h"
 #include "ngx_lua_shdict_defs.h"
 
+#define SHDICT_KEEP_EXPTIME ((uint64_t) (-1))
+
 typedef void (*err_fun_t)(void *userctx, const char *fmt, ...);
 
 static void
@@ -417,19 +419,18 @@ ngx_lua_shdict_check_required(lua_State *L,
 static ngx_inline uint64_t
 ngx_lua_get_expires(int64_t exptime /* ms */)
 {
-    uint64_t     expires = 0;
     ngx_time_t  *tp;
 
     if (exptime > 0) {
         tp = ngx_timeofday();
-        expires = (uint64_t) tp->sec * 1000 + tp->msec
-                      + exptime;
+        return (uint64_t) tp->sec * 1000 + tp->msec + exptime;
 
-    } else {
-        expires = 0;
+    } else if (exptime == 0) {
+
+        return 0;
     }
 
-    return expires;
+    return SHDICT_KEEP_EXPTIME;
 }
 
 
@@ -964,7 +965,8 @@ ngx_lua_shdict_rbtree_replace_value(ngx_lua_shdict_ctx_t *ctx,
     ngx_queue_remove(&sd->queue);
     ngx_queue_insert_head(&ctx->sh->lru_queue, &sd->queue);
 
-    sd->expires = expires;
+    if (expires != SHDICT_KEEP_EXPTIME)
+        sd->expires = expires;
 
     sd->user_flags = user_flags;
 
@@ -1292,6 +1294,9 @@ ngx_lua_shdict_api_fun_helper(ngx_shm_zone_t *shm_zone,
 
         value.user_flags = sd->user_flags;
 
+        if (expires == SHDICT_KEEP_EXPTIME)
+            expires = sd->expires;
+
         switch (value.type) {
 
         case SHDICT_TSTRING:
@@ -1335,6 +1340,9 @@ ngx_lua_shdict_api_fun_helper(ngx_shm_zone_t *shm_zone,
 
             return NGX_LUA_SHDICT_NOT_FOUND;
         }
+
+        if (expires == SHDICT_KEEP_EXPTIME)
+            expires = 0;
 
         ngx_memzero(&value, sizeof(ngx_lua_value_t));
     }
@@ -2453,12 +2461,12 @@ ngx_lua_shdict_lua_set_helper(lua_State *L, int flags)
 static int
 ngx_lua_shdict_incr(lua_State *L)
 {
-    ngx_str_t                      key;
-    ngx_int_t                      rc;
+    ngx_str_t                 key;
+    ngx_int_t                 rc;
     ngx_lua_shdict_ctx_t     *ctx;
-    ngx_shm_zone_t                *shm_zone = NULL;
-    int                            forcible = 0;
-    int                            n = lua_gettop(L);
+    ngx_shm_zone_t           *shm_zone = NULL;
+    int                       forcible = 0;
+    int                       n = lua_gettop(L);
 
     ngx_lua_shdict_incr_ctx_t userctx = {
         .val = nan("NaN"),
@@ -2488,7 +2496,7 @@ ngx_lua_shdict_incr(lua_State *L)
 
     rc = ngx_lua_shdict_api_fun_helper(shm_zone, key,
         ngx_lua_shdict_incr_getter,
-        ngx_lua_shdict_api_errlog, 0, 0, &userctx, 1, &forcible);
+        ngx_lua_shdict_api_errlog, 0, SHDICT_KEEP_EXPTIME, &userctx, 1, &forcible);
 
     ngx_shmtx_unlock(&ctx->shpool->mutex);
 
@@ -3413,7 +3421,7 @@ ngx_lua_shdict_fun(lua_State *L)
 {
     ngx_int_t                  rc;
     ngx_lua_shdict_ctx_t *ctx;
-    lua_Number                 exptime = 0;
+    lua_Number                 exptime = -1;
     ngx_shm_zone_t            *shm_zone = NULL;
     int                        n = lua_gettop(L);
     ngx_lua_shdict_userctx_t   userctx = {
