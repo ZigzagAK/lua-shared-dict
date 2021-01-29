@@ -71,6 +71,8 @@ typedef void   (*ngx_slab_free_pt)(ngx_slab_pool_t *pool, void *p);
 static ngx_slab_alloc_pt slab_alloc = ngx_slab_alloc_locked;
 static ngx_slab_free_pt slab_free = ngx_slab_free_locked;
 
+#define SHDICT_KEEP_EXPTIME ((uint64_t) (-1))
+
 
 typedef void (*err_fun_t)(void *userctx, const char *fmt, ...);
 
@@ -493,19 +495,18 @@ ngx_lua_shdict_check_required(lua_State *L,
 static ngx_inline uint64_t
 ngx_lua_get_expires(int64_t exptime /* ms */)
 {
-    uint64_t     expires = 0;
     ngx_time_t  *tp;
 
     if (exptime > 0) {
         tp = ngx_timeofday();
-        expires = (uint64_t) tp->sec * 1000 + tp->msec
-                      + exptime;
+        return (uint64_t) tp->sec * 1000 + tp->msec + exptime;
 
-    } else {
-        expires = 0;
+    } else if (exptime == 0) {
+
+        return 0;
     }
 
-    return expires;
+    return SHDICT_KEEP_EXPTIME;
 }
 
 
@@ -1041,7 +1042,8 @@ ngx_lua_shdict_rbtree_replace_value(ngx_lua_shdict_ctx_t *ctx,
     ngx_queue_remove(&sd->queue);
     ngx_queue_insert_head(&ctx->sh->lru_queue, &sd->queue);
 
-    sd->expires = expires;
+    if (expires != SHDICT_KEEP_EXPTIME)
+        sd->expires = expires;
 
     sd->user_flags = user_flags;
 
@@ -1364,6 +1366,9 @@ ngx_lua_shdict_api_fun_helper(ngx_shm_zone_t *zone,
 
         value.user_flags = sd->user_flags;
 
+        if (expires == SHDICT_KEEP_EXPTIME)
+            expires = sd->expires;
+
         switch (value.type) {
 
         case SHDICT_TSTRING:
@@ -1407,6 +1412,9 @@ ngx_lua_shdict_api_fun_helper(ngx_shm_zone_t *zone,
 
             return NGX_LUA_SHDICT_NOT_FOUND;
         }
+
+        if (expires == SHDICT_KEEP_EXPTIME)
+            expires = 0;
 
         ngx_memzero(&value, sizeof(ngx_lua_value_t));
     }
@@ -2552,7 +2560,7 @@ ngx_lua_shdict_incr(lua_State *L)
 
     rc = ngx_lua_shdict_api_fun_helper(zone, key,
         ngx_lua_shdict_incr_getter,
-        ngx_lua_shdict_api_errlog, 0, 0, &userctx, 1, &forcible);
+        ngx_lua_shdict_api_errlog, 0, SHDICT_KEEP_EXPTIME, &userctx, 1, &forcible);
 
     ngx_lua_shdict_unlock(zone);
 
@@ -3458,8 +3466,8 @@ ngx_lua_shdict_fun(lua_State *L)
 {
     ngx_int_t                  rc;
     ngx_lua_shdict_ctx_t      *ctx;
-    lua_Number                 exptime = 0;
     ngx_shm_zone_t            *zone = NULL;
+    lua_Number                 exptime = -1;
     int                        n = lua_gettop(L);
     ngx_lua_shdict_userctx_t   userctx = {
         .L = L, .get_stale = 0, .index = 3
