@@ -94,7 +94,15 @@ ngx_int_t ngx_lua_shdict_api_fun(ngx_shm_zone_t *shm_zone,
     ngx_str_t key, ngx_lua_get_fun_t fun, int64_t exptime,
         void *userctx);
 
+ngx_int_t ngx_lua_shdict_api_safe_fun(ngx_shm_zone_t *shm_zone,
+    ngx_str_t key, ngx_lua_get_fun_t fun, int64_t exptime,
+        void *userctx);
+
 ngx_int_t ngx_lua_shdict_api_fun_locked(ngx_shm_zone_t *shm_zone,
+    ngx_str_t key, ngx_lua_get_fun_t fun, int64_t exptime,
+        void *userctx);
+
+ngx_int_t ngx_lua_shdict_api_safe_fun_locked(ngx_shm_zone_t *shm_zone,
     ngx_str_t key, ngx_lua_get_fun_t fun, int64_t exptime,
         void *userctx);
 

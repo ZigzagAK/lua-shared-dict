@@ -90,6 +90,7 @@ static int ngx_lua_shdict_lpop(lua_State *L);
 static int ngx_lua_shdict_rpop(lua_State *L);
 static int ngx_lua_shdict_llen(lua_State *L);
 static int ngx_lua_shdict_fun(lua_State *L);
+static int ngx_lua_shdict_safe_fun(lua_State *L);
 static int ngx_lua_shared_dict_ttl(lua_State *L);
 static int ngx_lua_shared_dict_expire(lua_State *L);
 static int ngx_lua_shared_dict_capacity(lua_State *L);
@@ -151,6 +152,7 @@ ngx_lua_inject_shdict_mt(lua_State *L)
         { "flush_expired", ngx_lua_shdict_flush_expired },
         { "get_keys",      ngx_lua_shdict_get_keys },
         { "fun",           ngx_lua_shdict_fun },
+        { "safe_fun",      ngx_lua_shdict_safe_fun },
         { "ttl",           ngx_lua_shared_dict_ttl },
         { "expire",        ngx_lua_shared_dict_expire },
         { "capacity",      ngx_lua_shared_dict_capacity },
@@ -1245,7 +1247,7 @@ static ngx_int_t
 ngx_lua_shdict_api_fun_helper(ngx_shm_zone_t *shm_zone,
     ngx_str_t key, ngx_lua_get_fun_t fun, err_fun_t err_handler,
     int get_stale,  uint64_t expires, void *userctx, int mutable,
-    int *forcible)
+    int *forcible, int flags)
 {
     u_char                 *data = NULL;
     size_t                  len = 0;
@@ -1369,7 +1371,7 @@ ngx_lua_shdict_api_fun_helper(ngx_shm_zone_t *shm_zone,
                     key, ngx_lua_value_to_raw(&value),
                     value.type,
                     expires, value.user_flags,
-                    0, forcible);
+                    flags, forcible);
             }
 
             return NGX_LUA_SHDICT_OK;
@@ -1388,7 +1390,7 @@ ngx_lua_shdict_api_fun_helper(ngx_shm_zone_t *shm_zone,
                 key, ngx_lua_value_to_raw(&value),
                 value.type,
                 expires, value.user_flags,
-                0, forcible);
+                flags, forcible);
         }
 
         /* node deleted */
@@ -1461,7 +1463,7 @@ ngx_lua_shdict_api_fun_helper(ngx_shm_zone_t *shm_zone,
                 rc = ngx_lua_shdict_rbtree_insert_node(ctx,
                     key, value.value.s, value.type,
                     expires, value.user_flags,
-                    0, forcible);
+                    flags, forcible);
             }
         }
 
@@ -1582,7 +1584,7 @@ ngx_lua_shdict_get_helper(lua_State *L, int get_stale)
     rc = ngx_lua_shdict_api_fun_helper(shm_zone, userctx.key,
             ngx_lua_shdict_get_helper_push_value,
             ngx_lua_shdict_get_helper_err_handler,
-            get_stale, 0, &userctx, 0, NULL);
+            get_stale, 0, &userctx, 0, NULL, 0);
 
     ngx_shmtx_unlock(&ctx->shpool->mutex);
 
@@ -2042,7 +2044,7 @@ ngx_lua_shdict_api_get(ngx_shm_zone_t *shm_zone,
 
     rc = ngx_lua_shdict_api_fun_helper(shm_zone, key,
         ngx_lua_shared_dict_get_getter,
-        ngx_lua_shdict_api_errlog, 0, 0, &userctx, 0, NULL);
+        ngx_lua_shdict_api_errlog, 0, 0, &userctx, 0, NULL, 0);
 
     if (rc == NGX_LUA_SHDICT_OK && value) {
 
@@ -2066,7 +2068,7 @@ ngx_lua_shdict_api_get_locked(ngx_shm_zone_t *shm_zone,
 
     rc = ngx_lua_shdict_api_fun_helper(shm_zone, key,
         ngx_lua_shared_dict_get_getter,
-        ngx_lua_shdict_api_errlog, 0, 0, &userctx, 0, NULL);
+        ngx_lua_shdict_api_errlog, 0, 0, &userctx, 0, NULL, 0);
 
     if (rc == NGX_LUA_SHDICT_OK && value) {
 
@@ -2083,7 +2085,17 @@ ngx_lua_shdict_api_fun_locked(ngx_shm_zone_t *shm_zone,
 {
     uint64_t expires = ngx_lua_get_expires(exptime);
     return ngx_lua_shdict_api_fun_helper(shm_zone, key, fun,
-            ngx_lua_shdict_api_errlog, 0, expires, userctx, 1, NULL);
+            ngx_lua_shdict_api_errlog, 0, expires, userctx, 1, NULL, 0);
+}
+
+
+ngx_int_t
+ngx_lua_shdict_api_safe_fun_locked(ngx_shm_zone_t *shm_zone,
+    ngx_str_t key, ngx_lua_get_fun_t fun, int64_t exptime, void *userctx)
+{
+    uint64_t expires = ngx_lua_get_expires(exptime);
+    return ngx_lua_shdict_api_fun_helper(shm_zone, key, fun,
+            ngx_lua_shdict_api_errlog, 0, expires, userctx, 1, NULL, NGX_HTTP_LUA_SHDICT_SAFE_STORE);
 }
 
 
@@ -2097,6 +2109,24 @@ ngx_lua_shdict_api_fun(ngx_shm_zone_t *shm_zone,
     ngx_shmtx_lock(&ctx->shpool->mutex);
 
     rc = ngx_lua_shdict_api_fun_locked(shm_zone,
+        key, fun, exptime, userctx);
+
+    ngx_shmtx_unlock(&ctx->shpool->mutex);
+
+    return rc;
+}
+
+
+ngx_int_t
+ngx_lua_shdict_api_safe_fun(ngx_shm_zone_t *shm_zone,
+    ngx_str_t key, ngx_lua_get_fun_t fun, int64_t exptime, void *userctx)
+{
+    ngx_int_t             rc;
+    ngx_lua_shdict_ctx_t *ctx = shm_zone->data;
+
+    ngx_shmtx_lock(&ctx->shpool->mutex);
+
+    rc = ngx_lua_shdict_api_safe_fun_locked(shm_zone,
         key, fun, exptime, userctx);
 
     ngx_shmtx_unlock(&ctx->shpool->mutex);
@@ -2496,7 +2526,7 @@ ngx_lua_shdict_incr(lua_State *L)
 
     rc = ngx_lua_shdict_api_fun_helper(shm_zone, key,
         ngx_lua_shdict_incr_getter,
-        ngx_lua_shdict_api_errlog, 0, SHDICT_KEEP_EXPTIME, &userctx, 1, &forcible);
+        ngx_lua_shdict_api_errlog, 0, SHDICT_KEEP_EXPTIME, &userctx, 1, &forcible, 0);
 
     ngx_shmtx_unlock(&ctx->shpool->mutex);
 
@@ -3417,7 +3447,7 @@ ngx_lua_shdict_fun_pcall(ngx_lua_value_t *value,
 
 
 static int
-ngx_lua_shdict_fun(lua_State *L)
+ngx_lua_shdict_do_fun(lua_State *L, int flags)
 {
     ngx_int_t                  rc;
     ngx_lua_shdict_ctx_t *ctx;
@@ -3456,17 +3486,42 @@ ngx_lua_shdict_fun(lua_State *L)
         ngx_lua_shdict_fun_pcall,
         ngx_lua_shdict_get_helper_err_handler,
         0, ngx_lua_get_expires((int64_t) (exptime * 1000)),
-        &userctx, 1, NULL);
+        &userctx, 1, NULL, flags);
 
     ngx_shmtx_unlock(&ctx->shpool->mutex);
 
-    if (rc == NGX_LUA_SHDICT_ERROR) {
+    switch (rc) {
+        case NGX_LUA_SHDICT_OK:
+            break;
 
-        return luaL_error(L, userctx.err[0] ? (const char *) userctx.err :
-            "unexpected");
+        case NGX_LUA_SHDICT_NO_MEMORY:
+            lua_settop(L, n);
+            lua_pushnil(L);
+            lua_pushnil(L);
+            lua_pushliteral(L, "no memory");
+            return 3;
+
+        case NGX_LUA_SHDICT_ERROR:
+        default:
+            return luaL_error(L, userctx.err[0] ? (const char *) userctx.err :
+                "unexpected");
     }
 
     return 2;
+}
+
+
+static int
+ngx_lua_shdict_fun(lua_State *L)
+{
+    return ngx_lua_shdict_do_fun(L, 0);
+}
+
+
+static int
+ngx_lua_shdict_safe_fun(lua_State *L)
+{
+    return ngx_lua_shdict_do_fun(L, NGX_HTTP_LUA_SHDICT_SAFE_STORE);
 }
 
 
