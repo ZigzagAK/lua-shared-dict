@@ -3370,6 +3370,8 @@ ngx_lua_shdict_fun_pcall(ngx_lua_value_t *value,
 {
     ngx_lua_shdict_userctx_t *ctx = userctx;
     lua_State                *L = ctx->L;
+    int                       rc;
+    const char               *err;
 
     /* push lua clojure */
     lua_pushvalue(L, ctx->index);
@@ -3398,10 +3400,13 @@ ngx_lua_shdict_fun_pcall(ngx_lua_value_t *value,
 
     lua_pushinteger(L, value->user_flags);
 
-    if (lua_pcall(L, 2, 2, 0) != 0) {
+    rc = lua_pcall(L, 2, 2, 0);
+
+    if (rc != 0) {
 
         /*  error occurred when calling user code */
-        ngx_snprintf(ctx->err, NGX_MAX_ERROR_STR, "%s", lua_tostring(L, -1));
+        err = lua_tostring(L, -1);
+        ngx_snprintf(ctx->err, NGX_MAX_ERROR_STR, "rc: %d, error: %s", rc, err ? err : "unknown error");
         return NGX_LUA_SHDICT_ERROR;
     }
 
@@ -4196,6 +4201,8 @@ ngx_lua_shdict_newval(ngx_lua_value_t old,
 {
     ngx_lua_shdict_userctx_t *ctx = userctx;
     lua_State                *L = ctx->L;
+    int                       rc;
+    const char               *err;
 
     /* callback */
     lua_pushvalue(L, ctx->index);
@@ -4203,10 +4210,13 @@ ngx_lua_shdict_newval(ngx_lua_value_t old,
     /* push old value */
     ngx_lua_shdict_value_push(L, &old);
 
-    if (lua_pcall(L, 1, 1, 0) != 0) {
+    rc = lua_pcall(L, 1, 1, 0);
+
+    if (rc != 0) {
 
         /*  error occurred when calling user code */
-        ngx_snprintf(ctx->err, NGX_MAX_ERROR_STR, "%s", lua_tostring(L, -1));
+        err = lua_tostring(L, -1);
+        ngx_snprintf(ctx->err, NGX_MAX_ERROR_STR, "rc: %d, error: %s", rc, err ? err : "unknown error");
         return NGX_LUA_SHDICT_ERROR;
     }
 
@@ -4991,9 +5001,10 @@ ngx_lua_shdict_zscan_getter(ngx_str_t zkey, ngx_lua_value_t *value,
 {
     ngx_lua_shdict_userctx_t *ctx = userctx;
     lua_State                *L = ctx->L;
-    u_char                   *err_msg;
+    const char               *err;
     int                       b;
     int                       n = lua_gettop(L);
+    int                       rc;
 
     lua_pushvalue(L, ctx->index);
 
@@ -5003,21 +5014,19 @@ ngx_lua_shdict_zscan_getter(ngx_str_t zkey, ngx_lua_value_t *value,
     /* push zvalue */
     ngx_lua_shdict_get_helper_push_value(value, 0, userctx);
 
-    if (lua_pcall(L, lua_gettop(L) - n - 1, 1, 0) == 0) {
+    rc = lua_pcall(L, lua_gettop(L) - n - 1, 1, 0);
+
+    if (rc == 0) {
 
         b = lua_toboolean(L, -1);
     } else {
 
         /*  error occurred when calling user code */
-        err_msg = (u_char *) lua_tostring(L, -1);
-
-        if (err_msg == NULL) {
-            err_msg = (u_char *) "unknown";
-        }
+        err = lua_tostring(L, -1);
 
         ngx_snprintf(ctx->err, NGX_MAX_ERROR_STR,
-                     "user callback error shared_dict %s: %s",
-                     ctx->name.data, err_msg);
+                     "user callback error shared_dict %s: rc=%d, %s",
+                     ctx->name.data, rc, err ? err : "unknown error");
 
         b = 1;
     }
